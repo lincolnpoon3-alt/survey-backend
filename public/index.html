@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Survey - Product Feedback</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            line-height: 1.3;
+        }
+        
+        .header p {
+            font-size: 15px;
+            line-height: 1.7;
+            opacity: 0.95;
+        }
+        
+        .form-container {
+            padding: 40px;
+        }
+        
+        .form-group {
+            margin-bottom: 28px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 15px;
+        }
+        
+        .form-group label .required {
+            color: #e74c3c;
+            margin-left: 4px;
+        }
+        
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            font-family: inherit;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+        
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .form-group .options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .form-group .option-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .form-group .option-item:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .form-group .option-item input[type="radio"] {
+            margin-right: 12px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .form-group .option-item.selected {
+            border-color: #667eea;
+            background: #f0f3ff;
+        }
+        
+        .form-group .hint {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+        }
+        
+        .form-group .error {
+            font-size: 13px;
+            color: #e74c3c;
+            margin-top: 8px;
+            display: none;
+        }
+        
+        .form-group.error input,
+        .form-group.error textarea {
+            border-color: #e74c3c;
+        }
+        
+        .form-group.error .error {
+            display: block;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin-top: 10px;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Success Page Styles */
+        .success-page {
+            display: none;
+            text-align: center;
+            padding: 60px 40px;
+        }
+        
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            font-size: 40px;
+        }
+        
+        .success-page h2 {
+            font-size: 26px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .success-page p {
+            font-size: 16px;
+            color: #666;
+            line-height: 1.7;
+            margin-bottom: 15px;
+        }
+        
+        .success-page .highlight {
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 60px 40px;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 15px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .header h1 {
+                font-size: 22px;
+            }
+            
+            .form-container {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Survey Form -->
+        <div id="surveyForm">
+            <div class="header">
+                <h1>Customer Survey</h1>
+                <p>Thank you for purchasing our product! By filling out this brief contact information section, you'll get free entry to our new product testing program. We regularly invite members of our brand community to receive complimentary new products, and all we ask in return is your honest feedback on your experience with the items.</p>
+                <p style="margin-top: 15px;">What's more, once you complete this short survey, our dedicated product specialist team will reach out to you, and will be available at any time to answer any questions you have about the daily use of our products.</p>
+            </div>
+            
+            <div class="form-container">
+                <form id="contactForm" novalidate>
+                    <!-- Question 1: Full Name -->
+                    <div class="form-group" id="group-name">
+                        <label for="fullName">1. Your full name <span class="required">*</span></label>
+                        <input type="text" id="fullName" name="fullName" required placeholder="Enter your full name">
+                        <div class="error">Please enter your full name</div>
+                    </div>
+                    
+                    <!-- Question 2: Email -->
+                    <div class="form-group" id="group-email">
+                        <label for="email">2. Email address <span class="required">*</span></label>
+                        <input type="email" id="email" name="email" required placeholder="your.email@example.com">
+                        <div class="hint">We'll send confirmation to this email</div>
+                        <div class="error">Please enter a valid email address</div>
+                    </div>
+                    
+                    <!-- Question 3: Amazon Order Number -->
+                    <div class="form-group" id="group-order">
+                        <label for="orderNumber">3. Amazon order number <span class="required">*</span></label>
+                        <input type="text" id="orderNumber" name="orderNumber" required placeholder="123-4567890-1234567" maxlength="25">
+                        <div class="hint">Format: XXX-XXXXXXX-XXXXXXX (e.g., 123-4567890-1234567)</div>
+                        <div class="error">Please enter a valid order number in format XXX-XXXXXXX-XXXXXXX</div>
+                    </div>
+                    
+                    <!-- Question 4: Rating -->
+                    <div class="form-group" id="group-rating">
+                        <label>4. How would you rate your purchase? <span class="required">*</span></label>
+                        <div class="options">
+                            <label class="option-item" data-value="5">
+                                <input type="radio" name="rating" value="5" required>
+                                <span>5 - Fully Satisfied</span>
+                            </label>
+                            <label class="option-item" data-value="4">
+                                <input type="radio" name="rating" value="4">
+                                <span>4 - Satisfied</span>
+                            </label>
+                            <label class="option-item" data-value="3">
+                                <input type="radio" name="rating" value="3">
+                                <span>3 - Neutral</span>
+                            </label>
+                            <label class="option-item" data-value="2">
+                                <input type="radio" name="rating" value="2">
+                                <span>2 - Dissatisfied</span>
+                            </label>
+                            <label class="option-item" data-value="1">
+                                <input type="radio" name="rating" value="1">
+                                <span>1 - Very Dissatisfied</span>
+                            </label>
+                        </div>
+                        <div class="error">Please select a rating</div>
+                    </div>
+                    
+                    <!-- Question 5: Experience -->
+                    <div class="form-group" id="group-experience">
+                        <label for="experience">5. Tell us about your experience with the product <span class="required">*</span></label>
+                        <textarea id="experience" name="experience" required placeholder="Please share your experience..."></textarea>
+                        <div class="error">Please tell us about your experience</div>
+                    </div>
+                    
+                    <!-- Question 6: Try New Products -->
+                    <div class="form-group" id="group-try">
+                        <label>6. Would you be willing to try our new cat care products for FREE? <span class="required">*</span></label>
+                        <div class="options">
+                            <label class="option-item" data-value="yes">
+                                <input type="radio" name="tryProducts" value="Yes, I'd love to" required>
+                                <span>Yes, I'd love to</span>
+                            </label>
+                            <label class="option-item" data-value="no">
+                                <input type="radio" name="tryProducts" value="No, thank you">
+                                <span>No, thank you</span>
+                            </label>
+                        </div>
+                        <div class="error">Please select an option</div>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="submitBtn">Submit</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Loading State -->
+        <div id="loadingPage" class="loading">
+            <div class="spinner"></div>
+            <p>Submitting your response...</p>
+        </div>
+        
+        <!-- Success Page (Rating = 5) -->
+        <div id="successPage5" class="success-page">
+            <div class="success-icon">✓</div>
+            <h2>Thank you!</h2>
+            <p>Thank you so much for your valuable feedback! Our dedicated product specialist team has already sent a confirmation email to your inbox.</p>
+            <p>If you've been happy with the product, we'd be so grateful if you'd be willing to share your experience on Amazon or social media. Once you reply to the email with a screenshot of your post, our team will send you a complimentary additional product (the same as your order) as a small token of our appreciation.</p>
+            <p class="highlight">Wishing you and your pet lots of joy and happiness!</p>
+        </div>
+        
+        <!-- Success Page (Rating != 5) -->
+        <div id="successPageOther" class="success-page">
+            <div class="success-icon">✓</div>
+            <h2>Thank you!</h2>
+            <p>Thank you so much for your valuable feedback! Our dedicated product specialist team has already sent a confirmation email to your inbox.</p>
+        </div>
+    </div>
+    
+    <script>
+        // CONFIGURATION - Update these values for your deployment
+        const CONFIG = {
+            // Backend API endpoint (update after deployment)
+            API_ENDPOINT: '/api/submit',
+            
+            // Feishu Bitable credentials (for backend)
+            FEISHU_APP_TOKEN: 'NdZHbx0BCaPxRnsDYxwcfuAFnne',
+            FEISHU_TABLE_ID: 'tblXNfkMooqhgNG0'
+        };
+        
+        // DOM Elements
+        const form = document.getElementById('contactForm');
+        const surveyForm = document.getElementById('surveyForm');
+        const loadingPage = document.getElementById('loadingPage');
+        const successPage5 = document.getElementById('successPage5');
+        const successPageOther = document.getElementById('successPageOther');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        // Validation patterns
+        const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const ORDER_PATTERN = /^\d{3}-\d{7}-\d{7}$/;
+        
+        // Option item selection styling
+        document.querySelectorAll('.option-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const radio = this.querySelector('input[type="radio"]');
+                radio.checked = true;
+                
+                // Remove selected from siblings
+                this.parentElement.querySelectorAll('.option-item').forEach(sib => {
+                    sib.classList.remove('selected');
+                });
+                this.classList.add('selected');
+            });
+        });
+        
+        // Format order number as user types
+        document.getElementById('orderNumber').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 17) value = value.slice(0, 17);
+            
+            let formatted = '';
+            if (value.length > 0) {
+                formatted = value.slice(0, 3);
+                if (value.length > 3) {
+                    formatted += '-' + value.slice(3, 10);
+                    if (value.length > 10) {
+                        formatted += '-' + value.slice(10, 17);
+                    }
+                }
+            }
+            e.target.value = formatted;
+        });
+        
+        // Validation functions
+        function validateEmail(email) {
+            return EMAIL_PATTERN.test(email);
+        }
+        
+        function validateOrderNumber(order) {
+            return ORDER_PATTERN.test(order);
+        }
+        
+        function showError(group) {
+            document.getElementById(group).classList.add('error');
+        }
+        
+        function clearError(group) {
+            document.getElementById(group).classList.remove('error');
+        }
+        
+        function validateForm() {
+            let isValid = true;
+            
+            // Name
+            const name = document.getElementById('fullName').value.trim();
+            if (!name) {
+                showError('group-name');
+                isValid = false;
+            } else {
+                clearError('group-name');
+            }
+            
+            // Email
+            const email = document.getElementById('email').value.trim();
+            if (!validateEmail(email)) {
+                showError('group-email');
+                isValid = false;
+            } else {
+                clearError('group-email');
+            }
+            
+            // Order Number
+            const orderNumber = document.getElementById('orderNumber').value.trim();
+            if (!validateOrderNumber(orderNumber)) {
+                showError('group-order');
+                isValid = false;
+            } else {
+                clearError('group-order');
+            }
+            
+            // Rating
+            const rating = document.querySelector('input[name="rating"]:checked');
+            if (!rating) {
+                showError('group-rating');
+                isValid = false;
+            } else {
+                clearError('group-rating');
+            }
+            
+            // Experience
+            const experience = document.getElementById('experience').value.trim();
+            if (!experience) {
+                showError('group-experience');
+                isValid = false;
+            } else {
+                clearError('group-experience');
+            }
+            
+            // Try Products
+            const tryProducts = document.querySelector('input[name="tryProducts"]:checked');
+            if (!tryProducts) {
+                showError('group-try');
+                isValid = false;
+            } else {
+                clearError('group-try');
+            }
+            
+            return isValid;
+        }
+        
+        // Form submission
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!validateForm()) {
+                // Scroll to first error
+                const firstError = document.querySelector('.form-group.error');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+            
+            // Collect form data
+            const formData = {
+                fullName: document.getElementById('fullName').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                orderNumber: document.getElementById('orderNumber').value.trim(),
+                rating: document.querySelector('input[name="rating"]:checked').value,
+                experience: document.getElementById('experience').value.trim(),
+                tryProducts: document.querySelector('input[name="tryProducts"]:checked').value,
+                submitTime: new Date().toISOString()
+            };
+            
+            // Show loading
+            surveyForm.style.display = 'none';
+            loadingPage.style.display = 'block';
+            submitBtn.disabled = true;
+            
+            try {
+                // Submit to backend
+                const response = await fetch(CONFIG.API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Submission failed');
+                }
+                
+                // Show appropriate success page based on rating
+                loadingPage.style.display = 'none';
+                if (formData.rating === '5') {
+                    successPage5.style.display = 'block';
+                } else {
+                    successPageOther.style.display = 'block';
+                }
+                
+            } catch (error) {
+                console.error('Submission error:', error);
+                alert('Sorry, there was an error submitting your response. Please try again.');
+                loadingPage.style.display = 'none';
+                surveyForm.style.display = 'block';
+                submitBtn.disabled = false;
+            }
+        });
+        
+        // Real-time validation
+        document.getElementById('fullName').addEventListener('blur', function() {
+            if (this.value.trim()) clearError('group-name');
+        });
+        
+        document.getElementById('email').addEventListener('blur', function() {
+            if (validateEmail(this.value.trim())) clearError('group-email');
+        });
+        
+        document.getElementById('orderNumber').addEventListener('blur', function() {
+            if (validateOrderNumber(this.value.trim())) clearError('group-order');
+        });
+    </script>
+</body>
+</html>
