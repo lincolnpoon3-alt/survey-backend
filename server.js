@@ -20,6 +20,21 @@ const RESEND_CONFIG = {
     from: process.env.EMAIL_FROM || ''
 };
 
+// Get template code (A-F) based on rating and trial interest
+function getTemplateCode(rating, tryProducts) {
+    const ratingNum = parseInt(rating);
+    const wantsTrial = tryProducts && tryProducts.toLowerCase().includes('yes');
+    
+    if (ratingNum === 5 && wantsTrial) return 'A';
+    if ((ratingNum === 4 || ratingNum === 3) && wantsTrial) return 'B';
+    if ((ratingNum === 2 || ratingNum === 1) && wantsTrial) return 'C';
+    if (ratingNum === 5 && !wantsTrial) return 'D';
+    if ((ratingNum === 4 || ratingNum === 3) && !wantsTrial) return 'E';
+    if ((ratingNum === 2 || ratingNum === 1) && !wantsTrial) return 'F';
+    
+    return 'Unknown';
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -110,7 +125,8 @@ async function sendEmail(to, subject, html) {
         
         const result = await response.json();
         
-        if (response.ok && result.id) {
+        // Check status code directly (custom fetch doesn't have response.ok)
+        if (response.status === 200 && result.id) {
             console.log('✓ Email sent successfully via Resend:', result.id);
             return { messageId: result.id };
         } else {
@@ -191,7 +207,7 @@ async function createFeishuRecord(data) {
         '产品评价 / Review the product': data.experience,
         '是否愿意试用新产品 / Would you be willing to accept a free trial of our new product?': data.tryProducts,
         '邮件模板 / Email Template': data.emailTemplate || '',
-        '邮件发送状态 / Email Status': data.emailStatus || '',
+        '邮件发送状态 / Email Status': data.emailStatus || 'Pending',
         '日期 / Date': new Date().getTime()
     };
     
@@ -208,11 +224,17 @@ async function createFeishuRecord(data) {
     
     const result = await response.json();
     
+    console.log('📋 Feishu create response:', JSON.stringify(result));
+    
     if (result.code !== 0) {
         throw new Error(`Feishu API error: ${result.msg}`);
     }
     
-    return result;
+    // Extract record_id from response
+    const recordId = result.data?.record_id || result.data?.id;
+    console.log('   Extracted recordId:', recordId);
+    
+    return { ...result, recordId: recordId };
 }
 
 // Update email status in Feishu Bitable
@@ -222,14 +244,17 @@ async function updateFeishuEmailStatus(recordId, emailTemplate, emailStatus) {
         
         const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_CONFIG.appToken}/tables/${FEISHU_CONFIG.tableId}/records/${recordId}`;
         
-        // Only update fields that are provided (non-empty)
+        // Only update fields that are provided
         const fields = {};
         if (emailTemplate) {
             fields['邮件模板 / Email Template'] = emailTemplate;
         }
-        if (emailStatus) {
+        if (emailStatus !== undefined) {
             fields['邮件发送状态 / Email Status'] = emailStatus;
         }
+        
+        console.log('   [UPDATE] URL:', url);
+        console.log('   [UPDATE] Fields:', JSON.stringify(fields));
         
         const response = await fetch(url, {
             method: 'PUT',
@@ -244,6 +269,8 @@ async function updateFeishuEmailStatus(recordId, emailTemplate, emailStatus) {
         
         const result = await response.json();
         
+        console.log('   [UPDATE] Response:', JSON.stringify(result));
+        
         if (result.code !== 0) {
             console.error('❌ Failed to update Feishu email status:', result.msg);
         } else {
@@ -253,6 +280,7 @@ async function updateFeishuEmailStatus(recordId, emailTemplate, emailStatus) {
         return result;
     } catch (error) {
         console.error('❌ Error updating Feishu email status:', error.message);
+        console.error('   [UPDATE] Stack:', error.stack);
     }
 }
 
@@ -278,11 +306,12 @@ app.post('/api/submit', async (req, res) => {
             tryProducts
         });
         
-        // Get email template info first (fast operation)
+        // Get email template info and template code (A-F)
         const template = getEmailTemplate(fullName, orderNumber, rating, tryProducts);
         const templateName = template.subject;
+        const templateCode = getTemplateCode(rating, tryProducts);
         
-        // Save to Feishu Bitable IMMEDIATELY (with email template, status empty)
+        // Save to Feishu Bitable IMMEDIATELY (with template code A-F, status Pending)
         const feishuResult = await createFeishuRecord({
             fullName,
             email,
@@ -291,11 +320,11 @@ app.post('/api/submit', async (req, res) => {
             experience,
             tryProducts,
             submitTime,
-            emailTemplate: templateName,
-            emailStatus: ''  // Empty until email is sent
+            emailTemplate: templateCode,
+            emailStatus: 'Pending'
         });
         
-        const recordId = feishuResult.data.record_id;
+        const recordId = feishuResult.recordId || feishuResult.data?.record_id;
         console.log('✓ Successfully saved to Feishu Bitable:', recordId);
         
         // Return success IMMEDIATELY (don't wait for email)
@@ -314,26 +343,27 @@ app.post('/api/submit', async (req, res) => {
             console.log('📧 [BACKGROUND] Starting email process...');
             console.log('   Record ID:', recordId);
             console.log('   Recipient:', email);
+            console.log('   Template Code:', templateCode);
             
             try {
                 await sendEmail(email, templateName, template.html);
                 
                 console.log('✓ [BACKGROUND] Email sent successfully to:', email);
-                console.log('   [BACKGROUND] Updating Feishu status to: Sent ✓');
+                console.log('   [BACKGROUND] Updating Feishu status to: Sent');
                 
-                // Update Feishu with success status (only update status, template already set)
-                const updateResult = await updateFeishuEmailStatus(recordId, '', 'Sent ✓');
+                // Update Feishu with success status
+                const updateResult = await updateFeishuEmailStatus(recordId, '', 'Sent');
                 console.log('   [BACKGROUND] Feishu update result:', JSON.stringify(updateResult));
             } catch (error) {
                 console.error('❌ [BACKGROUND] Email failed:', error.message);
                 console.error('   [BACKGROUND] Stack:', error.stack);
-                console.log('   [BACKGROUND] Updating Feishu status to: Failed ✗');
+                console.log('   [BACKGROUND] Updating Feishu status to: Fail');
                 
                 // Update Feishu with failure status
-                const updateResult = await updateFeishuEmailStatus(recordId, '', 'Failed ✗');
+                const updateResult = await updateFeishuEmailStatus(recordId, '', 'Fail');
                 console.log('   [BACKGROUND] Feishu update result:', JSON.stringify(updateResult));
             }
-        }, 100);
+        }, 500);  // Increased delay to 500ms
         
     } catch (error) {
         console.error('❌ Submission error:', error.message);
