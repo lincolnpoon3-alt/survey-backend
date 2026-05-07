@@ -41,7 +41,7 @@ const PORT = process.env.PORT || 3000;
 // Simple fetch wrapper using native http/https modules
 function fetch(url, options = {}) {
     return new Promise((resolve, reject) => {
-        const isHttps = url.startsWith('https://');
+        const isHttps = url.startsWith('https');
         const lib = isHttps ? https : http;
         
         const requestOptions = {
@@ -86,58 +86,6 @@ const FEISHU_CONFIG = {
     appSecret: process.env.FEISHU_APP_SECRET || '',
     accessToken: ''
 };
-
-// Send email using Resend API
-async function sendEmail(to, subject, html) {
-    if (!RESEND_CONFIG.apiKey) {
-        console.log('⚠️  Resend API key not configured.');
-        return null;
-    }
-    
-    if (!RESEND_CONFIG.from) {
-        console.log('⚠️  EMAIL_FROM not configured.');
-        return null;
-    }
-    
-    console.log('📮 Sending email via Resend...');
-    console.log('   From:', RESEND_CONFIG.from);
-    console.log('   To:', to);
-    console.log('   Subject:', subject);
-    
-    const url = 'https://api.resend.com/emails';
-    
-    const data = {
-        from: RESEND_CONFIG.from,
-        to: to,
-        subject: subject,
-        html: html
-    };
-    
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${RESEND_CONFIG.apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-        
-        const result = await response.json();
-        
-        // Check status code directly (custom fetch doesn't have response.ok)
-        if (response.status === 200 && result.id) {
-            console.log('✓ Email sent successfully via Resend:', result.id);
-            return { messageId: result.id };
-        } else {
-            console.error('❌ Resend error:', result);
-            throw new Error(`Resend API error: ${result.message || response.status}`);
-        }
-    } catch (error) {
-        console.error('❌ Failed to send email:', error.message);
-        throw error;
-    }
-}
 
 // Get Feishu tenant access token
 async function getFeishuAccessToken() {
@@ -211,6 +159,11 @@ async function createFeishuRecord(data) {
         '日期 / Date': new Date().getTime()
     };
     
+    console.log('📋 Creating Feishu record with fields:', JSON.stringify({
+        emailTemplate: data.emailTemplate,
+        emailStatus: data.emailStatus
+    }));
+    
     const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -244,7 +197,6 @@ async function updateFeishuEmailStatus(recordId, emailTemplate, emailStatus) {
         
         const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_CONFIG.appToken}/tables/${FEISHU_CONFIG.tableId}/records/${recordId}`;
         
-        // Only update fields that are provided
         const fields = {};
         if (emailTemplate) {
             fields['邮件模板 / Email Template'] = emailTemplate;
@@ -284,6 +236,58 @@ async function updateFeishuEmailStatus(recordId, emailTemplate, emailStatus) {
     }
 }
 
+// Send email using Resend API
+async function sendEmail(to, subject, html) {
+    if (!RESEND_CONFIG.apiKey) {
+        console.log('⚠️  Resend API key not configured.');
+        return null;
+    }
+    
+    if (!RESEND_CONFIG.from) {
+        console.log('⚠️  EMAIL_FROM not configured.');
+        return null;
+    }
+    
+    console.log('📮 Sending email via Resend...');
+    console.log('   From:', RESEND_CONFIG.from);
+    console.log('   To:', to);
+    console.log('   Subject:', subject);
+    
+    const url = 'https://api.resend.com/emails';
+    
+    const data = {
+        from: RESEND_CONFIG.from,
+        to: to,
+        subject: subject,
+        html: html
+    };
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${RESEND_CONFIG.apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        // Check status code directly (custom fetch doesn't have response.ok)
+        if (response.status === 200 && result.id) {
+            console.log('✓ Email sent successfully via Resend:', result.id);
+            return { messageId: result.id };
+        } else {
+            console.error('❌ Resend error:', result);
+            throw new Error(`Resend API error: ${result.message || response.status}`);
+        }
+    } catch (error) {
+        console.error('❌ Failed to send email:', error.message);
+        throw error;
+    }
+}
+
 // API endpoint for form submission
 app.post('/api/submit', async (req, res) => {
     try {
@@ -310,6 +314,11 @@ app.post('/api/submit', async (req, res) => {
         const template = getEmailTemplate(fullName, orderNumber, rating, tryProducts);
         const templateName = template.subject;
         const templateCode = getTemplateCode(rating, tryProducts);
+        
+        console.log('📋 Template info:', {
+            code: templateCode,
+            subject: templateName.substring(0, 50) + '...'
+        });
         
         // Save to Feishu Bitable IMMEDIATELY (with template code A-F, status Pending)
         const feishuResult = await createFeishuRecord({
@@ -338,7 +347,6 @@ app.post('/api/submit', async (req, res) => {
         });
         
         // Send email in background (after response is sent)
-        // Use setTimeout to ensure response is sent first
         setTimeout(async () => {
             console.log('📧 [BACKGROUND] Starting email process...');
             console.log('   Record ID:', recordId);
@@ -363,7 +371,7 @@ app.post('/api/submit', async (req, res) => {
                 const updateResult = await updateFeishuEmailStatus(recordId, '', 'Fail');
                 console.log('   [BACKGROUND] Feishu update result:', JSON.stringify(updateResult));
             }
-        }, 500);  // Increased delay to 500ms
+        }, 500);
         
     } catch (error) {
         console.error('❌ Submission error:', error.message);
@@ -394,17 +402,10 @@ async function init() {
             console.log('📋 Feishu credentials found, attempting to get access token...');
             await getFeishuAccessToken();
         } else {
-            console.log('⚠️  Feishu credentials not configured. Set FEISHU_APP_ID and FEISHU_APP_SECRET environment variables.');
-            console.log('');
-            console.log('To get your Feishu credentials:');
-            console.log('1. Go to https://open.feishu.cn/');
-            console.log('2. Create a self-built app (自建应用)');
-            console.log('3. Get App ID and App Secret from app credentials');
-            console.log('4. Enable permissions: bitable:app (write access)');
-            console.log('5. Set environment variables in Railway Variables tab');
+            console.log('⚠️  Feishu credentials not configured.');
         }
     } catch (error) {
-        console.error('⚠️  Feishu initialization warning (server will still start):', error.message);
+        console.error('⚠️  Feishu initialization warning:', error.message);
     }
     
     app.listen(PORT, '0.0.0.0', () => {
@@ -418,12 +419,12 @@ async function init() {
         if (FEISHU_CONFIG.appId && FEISHU_CONFIG.appSecret && FEISHU_CONFIG.accessToken) {
             console.log('✓ Feishu integration ready!');
         } else {
-            console.log('⚠️  Feishu integration not ready - form submissions will fail');
+            console.log('⚠️  Feishu integration not ready');
         }
         if (RESEND_CONFIG.apiKey && RESEND_CONFIG.from) {
             console.log('✓ Resend email integration ready!');
         } else {
-            console.log('⚠️  Resend not configured - set RESEND_API_KEY and EMAIL_FROM in Railway Variables');
+            console.log('⚠️  Resend not configured');
         }
         console.log('');
     });
