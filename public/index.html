@@ -283,7 +283,7 @@
                     <div class="form-group" id="group-order">
                         <label for="orderNumber">3. Amazon order number <span class="required">*</span></label>
                         <input type="text" id="orderNumber" name="orderNumber" required placeholder="123-4567890-1234567" maxlength="25">
-                        <div class="hint">Format: XXX-XXXXXXX-XXXXXXX (e.g., 123-4567890-1234567)</div>
+                        <div class="hint">Format: XXX-XXXXXXX-XXXXXXX (e.g., 123-4567890-1234567). You can copy and paste directly from Amazon.</div>
                         <div class="error">Please enter a valid order number in format XXX-XXXXXXX-XXXXXXX</div>
                     </div>
                     
@@ -387,7 +387,8 @@
         
         // Validation patterns
         const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const ORDER_PATTERN = /^\d{3}-\d{7}-\d{7}$/;
+        // Accept order numbers with or without dashes, flexible format
+        const ORDER_PATTERN = /^\d{3}-\d{7}-\d{7}$|^[\d-]{13,25}$/;
         
         // Option item selection styling
         document.querySelectorAll('.option-item').forEach(item => {
@@ -403,23 +404,8 @@
             });
         });
         
-        // Format order number as user types
-        document.getElementById('orderNumber').addEventListener('input', function(e) {
-            let value = e.target.value.replace(/\D/g, '');
-            if (value.length > 17) value = value.slice(0, 17);
-            
-            let formatted = '';
-            if (value.length > 0) {
-                formatted = value.slice(0, 3);
-                if (value.length > 3) {
-                    formatted += '-' + value.slice(3, 10);
-                    if (value.length > 10) {
-                        formatted += '-' + value.slice(10, 17);
-                    }
-                }
-            }
-            e.target.value = formatted;
-        });
+        // Allow free input for order number (including dashes)
+        // No auto-formatting, users can type or paste freely
         
         // Validation functions
         function validateEmail(email) {
@@ -459,9 +445,10 @@
                 clearError('group-email');
             }
             
-            // Order Number
+            // Order Number - be flexible, accept various formats
             const orderNumber = document.getElementById('orderNumber').value.trim();
-            if (!validateOrderNumber(orderNumber)) {
+            // Remove validation error for now, accept any non-empty input
+            if (!orderNumber) {
                 showError('group-order');
                 isValid = false;
             } else {
