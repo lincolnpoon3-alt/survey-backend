@@ -84,7 +84,8 @@ const FEISHU_CONFIG = {
     tableId: 'tbl34FBJj2xRMWhD',
     appId: process.env.FEISHU_APP_ID || '',
     appSecret: process.env.FEISHU_APP_SECRET || '',
-    accessToken: ''
+    accessToken: '',
+    tokenExpiresAt: 0  // Token expiration timestamp (ms)
 };
 
 // Get Feishu tenant access token
@@ -122,7 +123,12 @@ async function getFeishuAccessToken() {
         }
         
         FEISHU_CONFIG.accessToken = result.tenant_access_token;
+        // Set expiration time (expire is in seconds, convert to ms and subtract 5 min buffer)
+        const expireSeconds = result.expire || 7200;
+        FEISHU_CONFIG.tokenExpiresAt = Date.now() + (expireSeconds - 300) * 1000;
+        
         console.log('✓ Feishu access token obtained successfully');
+        console.log(`   Token expires in: ${expireSeconds}s (at ${new Date(FEISHU_CONFIG.tokenExpiresAt).toLocaleString()})`);
         return result.tenant_access_token;
     } catch (error) {
         console.error('❌ Failed to get Feishu token:', error.message);
@@ -132,12 +138,23 @@ async function getFeishuAccessToken() {
 
 // Refresh token if needed
 async function ensureAccessToken() {
-    if (!FEISHU_CONFIG.accessToken) {
+    const now = Date.now();
+    
+    // Check if token is missing or expired
+    if (!FEISHU_CONFIG.accessToken || now >= FEISHU_CONFIG.tokenExpiresAt) {
+        console.log('🔑 [TOKEN] Token missing or expired, refreshing...');
+        console.log(`   [TOKEN] Current time: ${new Date(now).toLocaleString()}`);
+        console.log(`   [TOKEN] Token expires at: ${FEISHU_CONFIG.tokenExpiresAt ? new Date(FEISHU_CONFIG.tokenExpiresAt).toLocaleString() : 'N/A'}`);
+        
         const token = await getFeishuAccessToken();
         if (!token) {
             throw new Error('Feishu access token not available. Check FEISHU_APP_ID and FEISHU_APP_SECRET.');
         }
+    } else {
+        const expiresIn = Math.round((FEISHU_CONFIG.tokenExpiresAt - now) / 1000);
+        console.log(`🔑 [TOKEN] Using cached token (expires in ${expiresIn}s)`);
     }
+    
     return FEISHU_CONFIG.accessToken;
 }
 
