@@ -184,7 +184,7 @@ async function createFeishuRecord(data) {
     }
     
     // Extract record_id from response
-    const recordId = result.data?.record_id || result.data?.id;
+    const recordId = result.data?.record?.record_id || result.data?.record?.id || result.data?.record_id || result.data?.id;
     console.log('   Extracted recordId:', recordId);
     
     return { ...result, recordId: recordId };
